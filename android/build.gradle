@@ -44,6 +44,12 @@ android {
             // The tests against the local storage servers run only with BT_HARNESS set: a run with
             // it isn't the same as one without, so Gradle mustn't reuse that one's results.
             inputs.property('btHarness', System.getenv('BT_HARNESS') ?: '')
+            // A failure prints its whole message (expected, actual and the assertion's own text) and
+            // stack, so a CI log alone says what went wrong, without the HTML report.
+            testLogging {
+                events 'failed'
+                exceptionFormat 'full'
+            }
         }
     }
     compileOptions {
