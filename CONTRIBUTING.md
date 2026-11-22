@@ -174,7 +174,7 @@ and the publish and promote jobs run only for a GitHub release.
 The workflow signs in to npm one of two ways:
 
 - **Trusted publishing (no secret).** On npmjs.com, under the package's settings, add a trusted
-  publisher: GitHub Actions, repository `sandman-92/capacitor-background-transfer`, workflow
+  publisher: GitHub Actions, repository `Outface-World/capacitor-background-transfer`, workflow
   `release.yml`, no environment (so keep the workflow's file name). The publish job's
   `id-token: write` permission lets npm verify the run, and no token is stored anywhere. npm only
   offers this for a package that already exists, so the first release can't use it.

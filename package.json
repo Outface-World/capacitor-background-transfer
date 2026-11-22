@@ -18,10 +18,10 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/sandman-92/capacitor-background-transfer.git"
+    "url": "git+https://github.com/Outface-World/capacitor-background-transfer.git"
   },
   "bugs": {
-    "url": "https://github.com/sandman-92/capacitor-background-transfer/issues"
+    "url": "https://github.com/Outface-World/capacitor-background-transfer/issues"
   },
   "keywords": [
     "capacitor",
@@ -94,5 +94,5 @@
       "src": "android"
     }
   },
-  "homepage": "https://github.com/sandman-92/capacitor-background-transfer#readme"
+  "homepage": "https://github.com/Outface-World/capacitor-background-transfer#readme"
 }
