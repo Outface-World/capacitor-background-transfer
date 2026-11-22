@@ -23,19 +23,56 @@ jobs:
   secrets:
     name: Secret scan
     # Every push and pull request, whoever opened it: a key or credentials file that slipped into
-    # a commit would otherwise be published with the repository.
+    # a commit would otherwise be published with the repository. The gitleaks release binary runs
+    # directly, at an exact version checked against its published SHA-256 digest: the gitleaks
+    # action needs a licence key for repositories owned by an organisation.
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: read # the action lists a pull request's commits to scan them
+    env:
+      GITLEAKS_VERSION: 8.30.1
+      GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+      - name: Install gitleaks
+        run: |
+          set -eu
+          bin="$RUNNER_TEMP/bin"
+          mkdir -p "$bin"
+          cd "$RUNNER_TEMP"
+          curl -fsSLo gitleaks.tar.gz "https://github.com/gitleaks/gitleaks/releases/download/v$GITLEAKS_VERSION/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          printf '%s  gitleaks.tar.gz\n' "$GITLEAKS_SHA256" | sha256sum -c -
+          tar -xzf gitleaks.tar.gz -C "$bin" gitleaks
+          echo "$bin" >> "$GITHUB_PATH"
+      # A pull request's own commits; a push's new commits. The whole history when there is no
+      # earlier commit to start from: a manual run, a new branch, or a force push whose old head
+      # is gone. gitleaks reads .gitleaks.toml from the checkout.
+      - name: gitleaks
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_AFTER: ${{ github.event.after }}
+        run: |
+          set -eu
+          gitleaks version
+          range=
+          if [ "$EVENT" = pull_request ]; then
+            range="$PR_BASE..$PR_HEAD"
+          elif [ "$EVENT" = push ] && git cat-file -e "${PUSH_BEFORE}^{commit}" 2>/dev/null; then
+            range="$PUSH_BEFORE..$PUSH_AFTER"
+          fi
+          if [ -n "$range" ]; then
+            echo "scanning $range"
+            gitleaks git --redact --verbose --no-banner --exit-code 1 --log-opts="$range" .
+          else
+            echo "scanning the whole history"
+            gitleaks git --redact --verbose --no-banner --exit-code 1 .
+          fi
 
   verify:
     name: Verify

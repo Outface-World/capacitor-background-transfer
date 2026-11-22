@@ -88,15 +88,25 @@ pinned, and their ports published on `127.0.0.1` only.
 start without them. It reruns the JUnit suite even when Gradle holds results from a run without
 the servers, and says how many of `ServersTest`'s cases ran. In CI the JUnit suite runs against
 the compose servers on Linux; the Swift suite runs on macOS, which has no Docker, against the
-same MinIO release built from its repository, Azurite 3.37.0 from npm and the harness. CI also
-scans every push and pull request for committed secrets (gitleaks, configured in
-`.gitleaks.toml`, which allowlists the test servers' published development credentials).
+same MinIO release built from its repository, Azurite 3.37.0 from npm and the harness.
 
 ```bash
 npm run servers:up      # start them (docker compose up --wait)
 BT_HARNESS=http://localhost:8790 npm run test:android   # the JVM tests that need them run only with BT_HARNESS set
 BT_HARNESS=http://localhost:8790 npm run test:ios
 npm run servers:down
+```
+
+CI's `Secret scan` job checks every push and pull request for committed secrets with the
+`gitleaks` release binary, at the version and SHA-256 digest pinned in `.github/workflows/ci.yml`
+(`GITLEAKS_VERSION`, `GITLEAKS_SHA256`). It scans a pull request's commits, a push's new commits,
+or the whole history on a manual run. `.gitleaks.toml` adds to gitleaks' default rules an
+allowlist for the test servers' published development credentials. The same scan runs locally
+with gitleaks at that version on the `PATH`:
+
+```bash
+gitleaks git --redact --verbose --exit-code 1 --log-opts="origin/main..HEAD" .   # this branch's commits
+gitleaks git --redact --verbose --exit-code 1 .                                  # the whole history
 ```
 
 End to end, on one booted Android emulator or iOS simulator at a time (the URLs it hands the
