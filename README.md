@@ -3,7 +3,7 @@
 **Uploads and downloads that keep going when your Capacitor app doesn't.**
 
 [![npm](https://img.shields.io/npm/v/capacitor-background-transfer.svg)](https://www.npmjs.com/package/capacitor-background-transfer)
-[![CI](https://github.com/sandman-92/capacitor-background-transfer/actions/workflows/ci.yml/badge.svg)](https://github.com/sandman-92/capacitor-background-transfer/actions/workflows/ci.yml)
+[![CI](https://github.com/Outface-World/capacitor-background-transfer/actions/workflows/ci.yml/badge.svg)](https://github.com/Outface-World/capacitor-background-transfer/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 ![Capacitor 7](https://img.shields.io/badge/Capacitor-7-119eff.svg)
 ![Android 6+](https://img.shields.io/badge/Android-6.0%2B-3ddc84.svg)
@@ -216,7 +216,7 @@ short life are the better route for credentials.
 
 ## Feedback and contributing
 
-Found a bug or want a feature? [Open an issue](https://github.com/sandman-92/capacitor-background-transfer/issues).
+Found a bug or want a feature? [Open an issue](https://github.com/Outface-World/capacitor-background-transfer/issues).
 Pull requests are welcome too. [CONTRIBUTING.md](CONTRIBUTING.md) explains how to build the plugin,
 run its tests (including the local S3 and Azure servers) and try a change on a device with the
 [example app](example-app/). To report a security problem privately, see [SECURITY.md](SECURITY.md).

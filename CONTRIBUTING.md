@@ -91,6 +91,11 @@ the compose servers on Linux; the Swift suite runs on macOS, which has no Docker
 same MinIO release built from its repository, Azurite 3.37.0 from npm and the harness. CI also
 scans every push and pull request for committed secrets (gitleaks, configured in
 `.gitleaks.toml`, which allowlists the test servers' published development credentials).
+When the repository belongs to an organisation, the gitleaks action needs a licence key (free from
+gitleaks.io), stored twice under the name `GITLEAKS_LICENSE`: as a repository secret for pushes and
+pull requests from branches of the repository, and as a Dependabot secret for Dependabot's pull
+requests, which read only Dependabot secrets. Pull requests from forks fail the scan, because GitHub
+gives their runs no secrets. A personal account's repository needs no key.
 
 ```bash
 npm run servers:up      # start them (docker compose up --wait)
@@ -174,7 +179,7 @@ and the publish and promote jobs run only for a GitHub release.
 The workflow signs in to npm one of two ways:
 
 - **Trusted publishing (no secret).** On npmjs.com, under the package's settings, add a trusted
-  publisher: GitHub Actions, repository `sandman-92/capacitor-background-transfer`, workflow
+  publisher: GitHub Actions, repository `Outface-World/capacitor-background-transfer`, workflow
   `release.yml`, no environment (so keep the workflow's file name). The publish job's
   `id-token: write` permission lets npm verify the run, and no token is stored anywhere. npm only
   offers this for a package that already exists, so the first release can't use it.
