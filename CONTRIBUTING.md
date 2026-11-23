@@ -91,9 +91,11 @@ the compose servers on Linux; the Swift suite runs on macOS, which has no Docker
 same MinIO release built from its repository, Azurite 3.37.0 from npm and the harness. CI also
 scans every push and pull request for committed secrets (gitleaks, configured in
 `.gitleaks.toml`, which allowlists the test servers' published development credentials).
-The gitleaks action needs a repository secret `GITLEAKS_LICENSE` (a free key from
-gitleaks.io) when the repository belongs to an organisation; a personal account's repository needs
-none.
+When the repository belongs to an organisation, the gitleaks action needs a licence key (free from
+gitleaks.io), stored twice under the name `GITLEAKS_LICENSE`: as a repository secret for pushes and
+pull requests from branches of the repository, and as a Dependabot secret for Dependabot's pull
+requests, which read only Dependabot secrets. Pull requests from forks fail the scan, because GitHub
+gives their runs no secrets. A personal account's repository needs no key.
 
 ```bash
 npm run servers:up      # start them (docker compose up --wait)

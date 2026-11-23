@@ -22,8 +22,9 @@ env:
 jobs:
   secrets:
     name: Secret scan
-    # Every push and pull request, whoever opened it: a key or credentials file that slipped into
-    # a commit would otherwise be published with the repository.
+    # Every push and pull request: a key or credentials file that slipped into a commit would
+    # otherwise be published with the repository. A fork's pull request fails here, since its run
+    # gets no secrets and an organisation's repository needs GITLEAKS_LICENSE (CONTRIBUTING.md).
     runs-on: ubuntu-latest
     permissions:
       contents: read
