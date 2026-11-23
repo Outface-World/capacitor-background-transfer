@@ -151,9 +151,10 @@ published by a merge to `main`.
 2. On GitHub, draft a release from `main` with a new tag `vX.Y.Z` and the changelog entry as its
    notes. Tick **pre-release** for a version to try first: it is published under npm's `next`
    dist-tag, so `npm install capacitor-background-transfer@next` gets it and plain installs don't.
-   Unticking it later moves `latest` to that version (the workflow's promote job, which needs the
-   `NPM_TOKEN` secret: trusted publishing covers `npm publish` only), or publish the next version
-   as a full release.
+   To promote it later, untick pre-release and move `latest` by hand, signed in to npm with
+   two-factor authentication: `npm dist-tag add capacitor-background-transfer@X.Y.Z latest`
+   (trusted publishing covers `npm publish` only, so the workflow's check fails until `latest` is
+   moved). Or publish the next version as a full release.
 3. Publishing the release runs the workflow: it checks that the tag names the version in
    `package.json`, that `CHANGELOG.md` has a dated entry for it and that the tagged commit is on
    `main`; runs the lint, TypeScript, JUnit and XCTest suites and the iOS build (the server tests
@@ -171,23 +172,17 @@ same checks as a release, less the tag ones (it checks the version's dated chang
 tag, and not that the commit is on `main`), and ends in `npm publish --dry-run`. If the version
 in `package.json` is already on npm, as it is between releases, that run's copy is renamed to a
 throwaway `X.Y.Z-dryrun.<run id>` first, because npm refuses even a dry run over a published
-version. It can't publish or move a dist-tag: it has no `id-token` permission and no `NPM_TOKEN`,
-and the publish and promote jobs run only for a GitHub release.
+version. It can't publish: it has no `id-token` permission, and the publish job and the `latest`
+check run only for a GitHub release.
 
 ### One-time npm setup
 
-The workflow signs in to npm one of two ways:
+The workflow signs in to npm by trusted publishing, with no stored token. On npmjs.com, under the
+package's settings:
 
-- **Trusted publishing (no secret).** On npmjs.com, under the package's settings, add a trusted
-  publisher: GitHub Actions, repository `Outface-World/capacitor-background-transfer`, workflow
-  `release.yml`, no environment (so keep the workflow's file name). The publish job's
-  `id-token: write` permission lets npm verify the run, and no token is stored anywhere. npm only
-  offers this for a package that already exists, so the first release can't use it.
-- **A token (`NPM_TOKEN`).** For the first release (or if the trusted publisher is ever removed):
-  on npmjs.com create a granular access token with read and write access to this package (or to
-  new packages, the first time) and 2FA bypass for automation, and store it as the repository
-  secret `NPM_TOKEN`. The workflow writes it to `.npmrc` for the publish only. Once the trusted
-  publisher is set up the secret can go, and the workflow uses trusted publishing; keep it if you
-  want unticking pre-release on GitHub to promote a version to `latest`, which only a token can do.
+- Add a trusted publisher: GitHub Actions, organization `Outface-World`, repository
+  `capacitor-background-transfer`, workflow `release.yml`, no environment (so keep the workflow's
+  file name). The publish job's `id-token: write` permission lets npm verify the run.
+- Under publishing access, require two-factor authentication and disallow bypass 2FA tokens.
 
 Provenance needs a public repository, which this is.
