@@ -10,7 +10,7 @@ let package = Package(
             targets: ["BackgroundTransferPlugin"])
     ],
     dependencies: [
-        .package(url: "https://github.com/ionic-team/capacitor-swift-pm.git", "7.0.0"..<"9.0.0")
+        .package(url: "https://github.com/ionic-team/capacitor-swift-pm.git", from: "7.0.0")
     ],
     targets: [
         // Foundation only: records, the store, the remainder copy and the download's part file.
