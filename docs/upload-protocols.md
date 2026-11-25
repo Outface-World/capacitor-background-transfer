@@ -143,6 +143,6 @@ await BackgroundTransfer.upload({
 
 The protocols are tested against MinIO and Azurite in Docker (see
 [CONTRIBUTING.md](../CONTRIBUTING.md#local-storage-servers)): by JVM and Swift tests, and end to end on the Android emulator (API
-35, and API 33 for the pre-Android-14 worker) and the iOS simulator. Not run here: a locked
+35, and API 33 for the pre-Android-14 worker) and the iOS simulator, in a Capacitor 7 app. Not run here: a locked
 iPhone, the app swiped away, and real AWS and Azure accounts (presigned URL and SAS expiry against
 the real services, S3's 200-with-an-error answers, R2 and B2).

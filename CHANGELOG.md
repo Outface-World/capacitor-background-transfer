@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.0 (2026-11-25)
+
+- Capacitor 8, alongside Capacitor 7 (#31). `Package.swift` takes `capacitor-swift-pm` 7.x and 8.x,
+  and the peer dependency on `@capacitor/core` is `>=7.0.0 <9.0.0`. The JavaScript API, the upload
+  protocols and what a Capacitor 7 app needs are unchanged. A Capacitor 8 app needs Android 7.0
+  (API 24) and Xcode 26, as Capacitor 8 itself does.
+- Android: built by default with Android Gradle plugin 8.13.0, Gradle 8.14.3 and `compileSdk` 36. An
+  app's own versions still win: a Capacitor 7 app builds it with Android Gradle plugin 8.7.2, Gradle
+  8.11.1 and `compileSdk` 35.
+- `npm run test:matrix` builds the plugin into new apps of a Capacitor version, and CI runs it for
+  the first and the newest release of 7 and of 8 on every pull request.
+- The example app is on Capacitor 8.
+
 ## 0.1.0 (2026-11-08)
 
 First version.
