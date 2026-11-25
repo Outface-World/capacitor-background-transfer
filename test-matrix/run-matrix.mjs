@@ -160,7 +160,14 @@ function newApp(name, platform, ...addOptions) {
     '{ "appId": "com.example.matrix", "appName": "Matrix", "webDir": "www" }\n',
   );
   install(dir, ...capacitor('core', 'cli', platform));
-  cap(dir, 'add', platform, ...addOptions);
+  try {
+    cap(dir, 'add', platform, ...addOptions);
+  } catch (error) {
+    // 7.6.10's CLI makes the Swift Package Manager project, then fails running `pod install` in it.
+    // The `cap sync` that follows takes the project for what it is, and must succeed.
+    if (!fs.existsSync(path.join(dir, platform, 'App/CapApp-SPM/Package.swift'))) throw error;
+    console.log(`cap add failed after making the Swift Package Manager project: ${error.message}`);
+  }
   return dir;
 }
 

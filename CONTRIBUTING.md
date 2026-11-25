@@ -104,6 +104,8 @@ The apps are the templates as they come, with three changes: the `AppDelegate` m
 `README.md`; iOS 15 as the deployment target, since Capacitor 7's template says 14; and, where
 Capacitor 7.0.0's CLI writes `branch: "main"` for `capacitor-swift-pm` (the newest Capacitor of any
 major), the exact version instead.
+Capacitor 7.6.10's `cap add ios --packagemanager SPM` makes the project and then fails on `pod
+install`; the `cap sync` after it carries on from there.
 
 CI runs the matrix for 7.0.0, the newest 7, 8.0.0 and the newest 8: the first three cells on Linux,
 the iOS ones on `macos-15` with Xcode 16.4 for Capacitor 7 and Xcode 26.3 for Capacitor 8, CocoaPods
