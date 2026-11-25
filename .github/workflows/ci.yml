@@ -16,7 +16,7 @@ permissions:
   contents: read
 
 env:
-  NODE_VERSION: 20
+  NODE_VERSION: 22
   JAVA_VERSION: 21
 
 jobs:
@@ -40,11 +40,8 @@ jobs:
           # Required for a repository owned by an organisation; see CONTRIBUTING.md.
           GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
 
-  verify:
-    name: Verify
-    # Pull requests are only verified when Dependabot opens them, so they can
-    # merge themselves; everything else is verified on the push to main.
-    if: github.event_name != 'pull_request' || github.event.pull_request.user.login == 'dependabot[bot]'
+  checks:
+    name: Checks (lint, Vitest, JUnit, Swift core tests, iOS build)
     runs-on: macos-15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -91,8 +88,77 @@ jobs:
         env:
           BT_HARNESS: http://localhost:8790
         run: npm run test:ios
+      # It resolves the newest capacitor-swift-pm, whose Capacitor 8 binaries need Xcode 26.
       - name: iOS build
+        env:
+          DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
         run: npm run verify:ios
+
+  # The plugin against each Capacitor it supports (test-matrix/): the first and the newest release of
+  # each major, `7` and `8` being looked up when the job runs. Installed from the packed tarball into
+  # apps made by that Capacitor's own CLI. A cell that can't run on its runner fails its job.
+  capacitor-linux:
+    name: Capacitor ${{ matrix.capacitor }} (JavaScript and Android)
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - capacitor: '7.0.0'
+          - capacitor: '7'
+          - capacitor: '8.0.0'
+          - capacitor: '8'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: zulu
+          java-version: ${{ env.JAVA_VERSION }}
+      - name: JavaScript and Android cells
+        env:
+          CAPACITOR: ${{ matrix.capacitor }}
+          CELLS: js,android-app,android-tests
+        run: npm run test:matrix -- "$CAPACITOR" --cells "$CELLS"
+
+  capacitor-macos:
+    name: Capacitor ${{ matrix.capacitor }} (iOS)
+    strategy:
+      fail-fast: false
+      matrix:
+        # Capacitor 7 is built with the runner's Xcode 16, Capacitor 8 needs Xcode 26. CocoaPods
+        # only with the newest release of each.
+        include:
+          - capacitor: '7.0.0'
+            xcode: Xcode_16.4
+            cells: ios-spm
+          - capacitor: '7'
+            xcode: Xcode_16.4
+            cells: ios-spm,ios-cocoapods
+          - capacitor: '8.0.0'
+            xcode: Xcode_26.3
+            cells: ios-spm
+          - capacitor: '8'
+            xcode: Xcode_26.3
+            cells: ios-spm,ios-cocoapods
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: iOS cells
+        env:
+          CAPACITOR: ${{ matrix.capacitor }}
+          CELLS: ${{ matrix.cells }}
+          DEVELOPER_DIR: /Applications/${{ matrix.xcode }}.app/Contents/Developer
+        run: npm run test:matrix -- "$CAPACITOR" --cells "$CELLS"
 
   servers-jvm:
     name: Android tests against MinIO and Azurite
@@ -151,6 +217,23 @@ jobs:
         run: |
           actionlint --version
           actionlint -color
+
+  verify:
+    name: Verify
+    # The check the branch ruleset requires: every Capacitor cell and the other checks. It runs
+    # whatever happened to them, because a skipped check satisfies the ruleset.
+    needs: [checks, capacitor-linux, capacitor-macos, servers-jvm, workflows]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Every job passed
+        env:
+          JOBS: ${{ toJSON(needs) }}
+        run: |
+          set -eu
+          jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<< "$JOBS"
+          jq -e 'length > 0 and all(.[]; .result == "success")' <<< "$JOBS"
 
   dependabot-merge:
     name: Merge Dependabot update
