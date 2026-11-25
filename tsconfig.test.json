@@ -5,6 +5,7 @@
     "module": "esnext",
     "moduleResolution": "bundler",
     "skipLibCheck": true,
+    "allowJs": true,
     "types": ["node"],
     "lib": ["dom", "es2020"]
   },
