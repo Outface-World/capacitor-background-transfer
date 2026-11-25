@@ -94,7 +94,8 @@ progress notification shown; transfers run without it. The WorkManager version f
 ### iOS: one `AppDelegate` method
 
 A new Capacitor 7 app targets iOS 14: raise its deployment target to 15 (in the Xcode project, and
-in the `Podfile` with CocoaPods). A Capacitor 8 app already does.
+in the `Podfile` with CocoaPods), then run `npx cap sync` again, which gives the app's Swift package
+the new target or runs `pod install` with it. A Capacitor 8 app already targets 15.
 
 Hand the system's background session events to the plugin in `AppDelegate`, so transfers that
 end while the app is closed are recorded straight away (otherwise on the next launch):

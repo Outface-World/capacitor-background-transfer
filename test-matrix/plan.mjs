@@ -1,6 +1,7 @@
 // What `npm run test:matrix` is asked for and what it makes of the results: the arguments, the
 // supported majors, the newest version of one, the cells and the verdict. No I/O, so Vitest can test
 // it (tests/matrix.test.ts); run-matrix.mjs does the work.
+import path from 'node:path';
 
 /** Every cell, in the order they run. */
 export const CELLS = [
@@ -39,7 +40,7 @@ export function newestOf(major, versions) {
   return [major, ...minorAndPatch].join('.');
 }
 
-/** `{ version, major, exact, cells, named, keep }`, or an Error that says what is wrong. */
+/** `{ version, major, exact, cells, keep }`, or an Error that says what is wrong. */
 export function parseArgs(args, majors) {
   let version;
   let cells;
@@ -75,6 +76,14 @@ function defaultCells(exact) {
  */
 export function verdict(results, { ci }) {
   return results.length > 0 && results.every(({ status }) => status === 'passed' || (status === 'skipped' && !ci));
+}
+
+/** A command as a failure names it: up to its first option, a path by its last part. */
+export function stepName(cmd, args) {
+  const options = args.findIndex((arg) => arg.startsWith('-'));
+  return [cmd, ...args.slice(0, options < 0 ? args.length : options)]
+    .map((word) => (/^\.?\//.test(word) ? path.basename(word) : word))
+    .join(' ');
 }
 
 /** The lines printed at the end: every cell, its status and the reason for a skip or a failure. */

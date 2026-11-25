@@ -4,7 +4,7 @@
 // is left as it was), runs the cells in plan.mjs this machine can run, and lists the others with the
 // reason. A failed cell fails the command; a skipped one fails it only in CI (`CI` set). See
 // CONTRIBUTING.md.
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -17,6 +17,7 @@ import {
   majorsOf,
   newestOf,
   parseArgs,
+  stepName,
   summary,
   verdict,
   withAppDelegateMethod,
@@ -56,19 +57,54 @@ process.on('exit', () => {
   if (plan.keep) console.log(`kept ${work}`);
   else fs.rmSync(work, { recursive: true, force: true, maxRetries: 3 });
 });
-for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => process.exit(1));
 
-function run(cmd, args, cwd) {
+// On a signal the running child is asked to end first, since the directory it works in is removed on
+// exit. A second signal doesn't wait for it.
+let child;
+let stopping;
+function stop() {
+  console.error(`stopped by ${stopping}`);
+  process.exit(128 + os.constants.signals[stopping]);
+}
+for (const signal of ['SIGINT', 'SIGTERM'])
+  process.on(signal, () => {
+    const waiting = child && !stopping;
+    stopping = signal;
+    if (waiting) child.kill(signal);
+    else stop();
+  });
+
+/**
+ * Runs one child to its end, and resolves with its stdout where that is piped. Not spawnSync: no
+ * signal handler runs during it.
+ */
+function run(cmd, args, cwd, stdout = 'inherit') {
   console.log(`$ ${cmd} ${args.join(' ')}   (${path.relative(work, cwd) || '.'})`);
-  const { status, error, signal } = spawnSync(cmd, args, { cwd, stdio: ['ignore', 'inherit', 'inherit'], env });
-  if (status !== 0)
-    throw new Error(`${path.basename(cmd)} ${args[0]}: ${error?.message ?? signal ?? `exit ${status}`}`);
+  return new Promise((resolve, reject) => {
+    let printed = '';
+    const started = spawn(cmd, args, { cwd, stdio: ['ignore', stdout, 'inherit'], env });
+    child = started;
+    started.stdout?.setEncoding('utf8').on('data', (text) => (printed += text));
+    const end = (reason) => {
+      // `error` and `close` can both end it, with the next child running by then.
+      if (child === started) child = undefined;
+      if (stopping) stop();
+      if (reason) reject(new Error(`${stepName(cmd, args)}: ${reason}`));
+      else resolve(printed);
+    };
+    started.on('error', (error) => end(error.message));
+    started.on('close', (status, signal) => end(status === 0 ? '' : (signal ?? `exit ${status}`)));
+  });
 }
 
-/** What a command prints, stdout and stderr, or undefined if it can't run or fails. */
-function output(cmd, args, cwd = work) {
-  const { status, stdout, stderr } = spawnSync(cmd, args, { cwd, encoding: 'utf8', env, maxBuffer: 1 << 26 });
-  return status === 0 ? `${stdout}${stderr}` : undefined;
+function probe(cmd, args, cwd = work) {
+  return spawnSync(cmd, args, { cwd, encoding: 'utf8', env, maxBuffer: 1 << 26 });
+}
+
+/** What a command prints on stdout, or undefined if it can't run or fails. */
+function output(...command) {
+  const { status, stdout } = probe(...command);
+  return status === 0 ? stdout : undefined;
 }
 
 function edit(file, change) {
@@ -76,25 +112,15 @@ function edit(file, change) {
 }
 
 function once(make) {
-  let result;
-  return () => {
-    result ??= (() => {
-      try {
-        return { value: make() };
-      } catch (error) {
-        return { error };
-      }
-    })();
-    if (result.error) throw result.error;
-    return result.value;
-  };
+  let made;
+  return () => (made ??= make());
 }
 
 // What this machine has
 
 const android = once(() => {
   const java = env.JAVA_HOME ? path.join(env.JAVA_HOME, 'bin', 'java') : 'java';
-  const jdk = /version "(\d+)/.exec(output(java, ['-version']) ?? '')?.[1];
+  const jdk = /version "(\d+)/.exec(probe(java, ['-version']).stderr ?? '')?.[1];
   if (!jdk || Number(jdk) < 21) return { missing: `needs JDK 21 (JAVA_HOME)${jdk ? `, found ${jdk}` : ''}` };
   const localProperties = path.join(root, 'android/local.properties');
   const local = fs.existsSync(localProperties) && /^sdk\.dir=(.+)$/m.exec(read(localProperties));
@@ -122,13 +148,22 @@ const cocoapods = once(() => {
 
 // What the cells share
 
-const version = plan.exact
-  ? plan.version
-  : newestOf(plan.major, JSON.parse(output('npm', ['view', '@capacitor/core', 'versions', '--json']) ?? '[]'));
+async function newestPublished() {
+  const versions = await run('npm', ['view', '@capacitor/core', 'versions', '--json'], work, 'pipe');
+  return newestOf(plan.major, JSON.parse(versions));
+}
+
+let version;
+try {
+  version = plan.exact ? plan.version : await newestPublished();
+} catch (error) {
+  console.error(`The newest Capacitor ${plan.major} was not found: ${error.message}`);
+  process.exit(1);
+}
 const capacitor = (...names) => names.map((name) => `@capacitor/${name}@${version}`);
 
 /** A copy of the checkout's own files (ignored ones left out), with the lockfile's dependencies. */
-const source = once(() => {
+const source = once(async () => {
   const dir = path.join(work, 'source');
   const listed = output('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], root);
   if (listed === undefined) throw new Error('git ls-files failed: the matrix runs in a git checkout');
@@ -137,20 +172,20 @@ const source = once(() => {
     if (!fs.lstatSync(from, { throwIfNoEntry: false })) continue;
     fs.cpSync(from, path.join(dir, file), { recursive: true, verbatimSymlinks: true });
   }
-  run('npm', ['ci', '--ignore-scripts', '--no-audit', '--no-fund'], dir);
+  await run('npm', ['ci', '--ignore-scripts', '--no-audit', '--no-fund'], dir);
   return dir;
 });
 
 /** The tarball as npm would publish it. One tarball, whichever Capacitor the cells install. */
-const tarball = once(() => {
-  const dir = source();
-  run('npm', ['run', 'build'], dir);
-  run('npm', ['pack', '--pack-destination', work], dir);
+const tarball = once(async () => {
+  const dir = await source();
+  await run('npm', ['run', 'build'], dir);
+  await run('npm', ['pack', '--pack-destination', work], dir);
   return path.join(work, `${PLUGIN}-${pkg.version}.tgz`);
 });
 
 /** A new app made with this Capacitor's CLI, before the plugin is installed. */
-function newApp(name, platform, ...addOptions) {
+async function newApp(name, platform, ...addOptions) {
   const dir = path.join(work, name);
   fs.mkdirSync(path.join(dir, 'www'), { recursive: true });
   fs.writeFileSync(path.join(dir, 'www/index.html'), '<!doctype html><title>Matrix</title>\n');
@@ -159,9 +194,9 @@ function newApp(name, platform, ...addOptions) {
     path.join(dir, 'capacitor.config.json'),
     '{ "appId": "com.example.matrix", "appName": "Matrix", "webDir": "www" }\n',
   );
-  install(dir, ...capacitor('core', 'cli', platform));
+  await install(dir, ...capacitor('core', 'cli', platform));
   try {
-    cap(dir, 'add', platform, ...addOptions);
+    await cap(dir, 'add', platform, ...addOptions);
   } catch (error) {
     // 7.6.10's CLI makes the Swift Package Manager project, then fails running `pod install` in it.
     // The `cap sync` that follows takes the project for what it is, and must succeed.
@@ -172,33 +207,33 @@ function newApp(name, platform, ...addOptions) {
 }
 
 // --strict-peer-deps: a Capacitor outside the plugin's peer range fails the install.
-function install(dir, ...packages) {
-  run('npm', ['install', '--save-exact', '--strict-peer-deps', '--no-audit', '--no-fund', ...packages], dir);
+async function install(dir, ...packages) {
+  await run('npm', ['install', ...packages, '--save-exact', '--strict-peer-deps', '--no-audit', '--no-fund'], dir);
 }
 
-function cap(dir, ...args) {
-  run(process.execPath, [path.join(dir, 'node_modules/@capacitor/cli/bin/capacitor'), ...args], dir);
+async function cap(dir, ...args) {
+  await run(process.execPath, [path.join(dir, 'node_modules/@capacitor/cli/bin/capacitor'), ...args], dir);
 }
 
 function expect(file, text) {
   if (!read(file).includes(text)) throw new Error(`${path.relative(work, file)} doesn't have ${text}`);
 }
 
-const androidApp = once(() => {
-  const dir = newApp('android', 'android');
-  install(dir, tarball());
-  cap(dir, 'sync', 'android');
+const androidApp = once(async () => {
+  const dir = await newApp('android', 'android');
+  await install(dir, await tarball());
+  await cap(dir, 'sync', 'android');
   expect(path.join(dir, 'android/capacitor.settings.gradle'), `':${PLUGIN}'`);
   expect(path.join(dir, 'android/app/src/main/assets/capacitor.plugins.json'), PLUGIN);
   return dir;
 });
 
-function gradle(app, ...tasks) {
-  run('./gradlew', ['--no-daemon', ...tasks], path.join(app, 'android'));
+async function gradle(app, ...tasks) {
+  await run('./gradlew', [...tasks, '--no-daemon'], path.join(app, 'android'));
 }
 
-function iosApp(name, packageManager) {
-  const dir = newApp(name, 'ios', '--packagemanager', packageManager);
+async function iosApp(name, packageManager) {
+  const dir = await newApp(name, 'ios', '--packagemanager', packageManager);
   const project = path.join(dir, 'ios/App');
   const minimum = Number(/\.iOS\(\.v(\d+)\)/.exec(read(root, 'Package.swift'))[1]);
   // Capacitor 7's template targets iOS 14; the plugin needs 15.
@@ -208,12 +243,12 @@ function iosApp(name, packageManager) {
   edit(path.join(project, 'App/AppDelegate.swift'), (text) =>
     withAppDelegateMethod(text, appDelegateMethod(read(root, 'README.md'))),
   );
-  install(dir, tarball());
-  cap(dir, 'sync', 'ios');
+  await install(dir, await tarball());
+  await cap(dir, 'sync', 'ios');
   return project;
 }
 
-function xcodebuild(project, container) {
+async function xcodebuild(project, container) {
   const destination = ['-destination', 'generic/platform=iOS Simulator'];
   const options = [
     '-configuration',
@@ -223,7 +258,7 @@ function xcodebuild(project, container) {
     '-scmProvider',
     'system',
   ];
-  run(
+  await run(
     'xcodebuild',
     ['build', ...container, '-scheme', 'App', ...destination, ...options, 'CODE_SIGNING_ALLOWED=NO', '-quiet'],
     project,
@@ -235,32 +270,32 @@ function xcodebuild(project, container) {
 const cells = {
   js: {
     needs: () => ({}),
-    run() {
+    async run() {
       const dir = path.join(work, 'js');
-      fs.cpSync(source(), dir, { recursive: true, verbatimSymlinks: true });
+      fs.cpSync(await source(), dir, { recursive: true, verbatimSymlinks: true });
       const packages = capacitor('core', 'android', 'ios');
-      run(
+      await run(
         'npm',
-        ['install', '--save-dev', '--save-exact', '--ignore-scripts', '--no-audit', '--no-fund', ...packages],
+        ['install', ...packages, '--save-dev', '--save-exact', '--ignore-scripts', '--no-audit', '--no-fund'],
         dir,
       );
-      for (const script of ['typecheck', 'test', 'build']) run('npm', ['run', script], dir);
+      for (const script of ['typecheck', 'test', 'build']) await run('npm', ['run', script], dir);
     },
   },
   'android-app': {
     needs: android,
-    run() {
-      gradle(androidApp(), 'assembleDebug');
+    async run() {
+      await gradle(await androidApp(), 'assembleDebug');
     },
   },
   'android-tests': {
     needs: android,
-    run() {
+    async run() {
       // The tests aren't in the tarball, so they are put beside the installed sources.
-      const app = androidApp();
+      const app = await androidApp();
       const plugin = path.join(app, 'node_modules', PLUGIN, 'android');
       fs.cpSync(path.join(root, 'android/src/test'), path.join(plugin, 'src/test'), { recursive: true });
-      gradle(app, `:${PLUGIN}:testDebugUnitTest`);
+      await gradle(app, `:${PLUGIN}:testDebugUnitTest`);
       const results = path.join(plugin, 'build/test-results/testDebugUnitTest');
       const reports = fs.readdirSync(results).filter((file) => file.endsWith('.xml'));
       const counts = reports.map((file) => /tests="(\d+)" skipped="(\d+)"/.exec(read(results, file)));
@@ -271,15 +306,15 @@ const cells = {
   },
   'ios-spm': {
     needs: ios,
-    run() {
-      const project = iosApp('ios-spm', 'SPM');
+    async run() {
+      const project = await iosApp('ios-spm', 'SPM');
       const manifest = path.join(project, 'CapApp-SPM/Package.swift');
       edit(manifest, (text) => withPinnedCapacitor(text, version));
       expect(manifest, '"CapacitorBackgroundTransfer"');
       // `cap sync` (7.6, 8.6) rewrites a plugin's `from:` that names another major.
       const installed = read(project, '../../node_modules', PLUGIN, 'Package.swift');
       if (installed !== read(root, 'Package.swift')) throw new Error("cap sync rewrote the plugin's Package.swift");
-      xcodebuild(project, ['-project', 'App.xcodeproj']);
+      await xcodebuild(project, ['-project', 'App.xcodeproj']);
       const resolved = 'App.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved';
       const { pins } = JSON.parse(read(project, resolved));
       const built = pins.find(({ identity }) => identity === 'capacitor-swift-pm')?.state.version;
@@ -288,27 +323,30 @@ const cells = {
   },
   'ios-cocoapods': {
     needs: cocoapods,
-    run() {
-      const project = iosApp('ios-cocoapods', 'CocoaPods');
+    async run() {
+      const project = await iosApp('ios-cocoapods', 'CocoaPods');
       expect(path.join(project, 'Podfile'), "'CapacitorBackgroundTransfer'");
       expect(path.join(project, 'Podfile.lock'), `- Capacitor (${version})`);
-      xcodebuild(project, ['-workspace', 'App.xcworkspace']);
+      await xcodebuild(project, ['-workspace', 'App.xcworkspace']);
     },
   },
 };
 
-const results = plan.cells.map((id) => {
+async function result(id) {
   const { missing } = cells[id].needs();
   if (missing) return { id, status: 'skipped', reason: missing };
   console.log(`\n=== Capacitor ${version}: ${id}`);
   try {
-    cells[id].run();
+    await cells[id].run();
     return { id, status: 'passed' };
   } catch (error) {
     console.error(error.message);
     return { id, status: 'failed', reason: error.message };
   }
-});
+}
+
+const results = [];
+for (const id of plan.cells) results.push(await result(id));
 
 const ci = Boolean(env.CI) && env.CI !== 'false';
 console.log(`\nCapacitor ${version}`);

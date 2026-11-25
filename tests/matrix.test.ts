@@ -8,6 +8,7 @@ import {
   majorsOf,
   newestOf,
   parseArgs,
+  stepName,
   summary,
   verdict,
   withAppDelegateMethod,
@@ -102,6 +103,22 @@ describe('the verdict', () => {
     const lines = summary([passed, skipped]);
     expect(lines[0]).toMatch(/^passed +js +Typecheck/);
     expect(lines[1]).toMatch(/^skipped +ios-spm .*: needs macOS with Xcode$/);
+  });
+});
+
+describe('the name of a step', () => {
+  it.each([
+    ['npm', ['run', 'test'], 'npm run test'],
+    [
+      'npm',
+      ['install', '@capacitor/core@7.0.0', '/tmp/x/plugin-0.2.0.tgz', '--save-exact'],
+      'npm install @capacitor/core@7.0.0 plugin-0.2.0.tgz',
+    ],
+    ['./gradlew', [':plugin:testDebugUnitTest', '--no-daemon'], 'gradlew :plugin:testDebugUnitTest'],
+    ['/usr/bin/node', ['/tmp/x/bin/capacitor', 'sync', 'android'], 'node capacitor sync android'],
+    ['xcodebuild', ['build', '-project', 'App.xcodeproj'], 'xcodebuild build'],
+  ])('%s %j is %s', (cmd, args, name) => {
+    expect(stepName(cmd, args)).toBe(name);
   });
 });
 
