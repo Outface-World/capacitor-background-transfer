@@ -1,6 +1,6 @@
 {
   "name": "capacitor-background-transfer",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Background uploads and downloads for Capacitor: Firebase Storage resumable uploads, S3 multipart uploads, Azure block blobs and plain PUTs, and resumable downloads, that keep going with the app in the background or closed",
   "main": "dist/plugin.cjs.js",
   "module": "dist/esm/index.js",
@@ -58,13 +58,14 @@
     "servers:up": "docker compose -f test-servers/compose.yaml up -d --wait",
     "servers:down": "docker compose -f test-servers/compose.yaml down",
     "test:servers": "node test-servers/run-tests.mjs",
+    "test:matrix": "node test-matrix/run-matrix.mjs",
     "test:e2e": "node test-servers/e2e.mjs"
   },
   "devDependencies": {
-    "@capacitor/android": "^7.0.0",
-    "@capacitor/core": "^7.0.0",
+    "@capacitor/android": "^8.0.0",
+    "@capacitor/core": "^8.0.0",
     "@capacitor/docgen": "^0.3.0",
-    "@capacitor/ios": "^7.0.0",
+    "@capacitor/ios": "^8.0.0",
     "@ionic/eslint-config": "^0.4.0",
     "@ionic/prettier-config": "^4.0.0",
     "@ionic/swiftlint-config": "^2.0.0",
@@ -79,7 +80,7 @@
     "vitest": "^5.0.5"
   },
   "peerDependencies": {
-    "@capacitor/core": ">=7.0.0"
+    "@capacitor/core": ">=7.0.0 <9.0.0"
   },
   "prettier": "@ionic/prettier-config",
   "swiftlint": "@ionic/swiftlint-config",

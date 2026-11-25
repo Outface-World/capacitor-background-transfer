@@ -95,14 +95,18 @@ runs:
     - name: iOS core tests
       shell: bash
       run: npm run test:ios
+    # It resolves the newest capacitor-swift-pm, whose Capacitor 8 binaries need Xcode 26 (the
+    # runner's default is 16.4).
     - name: iOS build
       shell: bash
+      env:
+        DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
       run: npm run verify:ios
 
     - name: npm that can publish with provenance and trusted publishing
       shell: bash
       # zizmor: ignore[adhoc-packages] npm itself can't come from the project's lockfile; the
-      # version is exact, and the Node 20 runner's own npm 10 can't use trusted publishing.
+      # version is exact, and Node 22's own npm 10 can't use trusted publishing.
       run: npm install -g npm@11.21.2 && npm --version
     - name: What the package will hold
       shell: bash

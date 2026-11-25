@@ -8,8 +8,9 @@ Issues and pull requests are welcome.
 npm install
 ```
 
-You need Node.js 20 or later; for Android, JDK 21 and the Android SDK (`ANDROID_HOME`); for iOS,
-Xcode on macOS; for the tests against local storage servers, Docker.
+You need Node.js 22 or later; for Android, JDK 21 and the Android SDK (`ANDROID_HOME`, platforms 35
+and 36); for iOS, Xcode 26 or later on macOS (Capacitor 8 needs it); for the tests against local
+storage servers, Docker.
 
 ## Checks
 
@@ -19,7 +20,12 @@ Run these before opening a pull request:
 npm run verify   # typecheck, Vitest, build, JUnit, XCTest
 npm run lint     # ESLint and Prettier (and SwiftLint where installed)
 npm run test:servers   # with Docker: the JUnit and XCTest suites against MinIO and Azurite
+npm run test:matrix -- 7   # the plugin in new Capacitor 7 apps; the same with 8
 ```
+
+CI runs all of these but SwiftLint on every pull request and every push to `main`, forks' pull
+requests included. Its **Verify** job passes only when the checks, every Capacitor cell, the server
+tests and the workflow checks have.
 
 A change to an upload protocol should also pass the end-to-end runs on an emulator or simulator
 (`npm run test:e2e`; see [Local storage servers](#local-storage-servers)).
@@ -68,7 +74,43 @@ npm run test:android    # JUnit: chunking, offsets, Range, retries, the queue (J
 npm run test:ios        # XCTest on macOS: remainder copies, part files, upload outcomes
 npm run verify          # all of the above
 npm run test:servers    # MinIO and Azurite in Docker; the JUnit and XCTest suites against them
+npm run test:matrix -- 8   # against one Capacitor version, below
 ```
+
+### The Capacitor matrix
+
+The repository develops on Capacitor 8. The plugin supports 7 and 8, and the range is in two places
+that must name the same majors: `peerDependencies` in `package.json` and `capacitor-swift-pm` in
+`Package.swift` (`tests/matrix.test.ts` compares them).
+
+`npm run test:matrix -- <version>` takes a major (`7` or `8`: its newest release, looked up on npm)
+or an exact release (`7.0.0`). It packs the plugin as npm would publish it and installs the tarball
+in new apps made by that Capacitor's own CLI, in a temporary directory, so the checkout is left as
+it was. Its cells:
+
+| Cell | What | Needs |
+|---|---|---|
+| `js` | Typecheck, Vitest and build, with that Capacitor installed | |
+| `android-app` | A new app from that Capacitor's Android template, built with the plugin | JDK 21, the Android SDK |
+| `android-tests` | The plugin's JUnit tests, in that app's Gradle build | The same |
+| `ios-spm` | A new app with Swift Package Manager, built for the simulator with the plugin | macOS; Xcode 16 for Capacitor 7, Xcode 26 for Capacitor 8 |
+| `ios-cocoapods` | The same with CocoaPods (for an exact release, only when named) | The same, and CocoaPods |
+
+`--cells js,android-app` runs only those, and `--keep` leaves the temporary directory in place. Each
+cell the machine can't run is listed as skipped with the reason. A failed cell fails the command. A
+skipped one doesn't, except in CI (with `CI` set), where a job names the cells its runner must run.
+
+The apps are the templates as they come, with three changes: the `AppDelegate` method from
+`README.md`; iOS 15 as the deployment target, since Capacitor 7's template says 14; and, where
+Capacitor 7.0.0's CLI writes `branch: "main"` for `capacitor-swift-pm` (the newest Capacitor of any
+major), the exact version instead.
+Capacitor 7.6.10's `cap add ios --packagemanager SPM` makes the project and then fails on `pod
+install`; the `cap sync` after it carries on from there.
+
+CI runs the matrix for 7.0.0, the newest 7, 8.0.0 and the newest 8: the first three cells on Linux,
+the iOS ones on `macos-15` with Xcode 16.4 for Capacitor 7 and Xcode 26.3 for Capacitor 8, CocoaPods
+with the newest of each. So a Capacitor release that breaks the plugin fails the next run. The
+Swift core tests and the tests against the storage servers don't involve Capacitor and run once.
 
 ### Local storage servers
 
@@ -157,8 +199,8 @@ published by a merge to `main`.
    moved). Or publish the next version as a full release.
 3. Publishing the release runs the workflow: it checks that the tag names the version in
    `package.json`, that `CHANGELOG.md` has a dated entry for it and that the tagged commit is on
-   `main`; runs the lint, TypeScript, JUnit and XCTest suites and the iOS build (the server tests
-   ran on the merge to `main`); installs a pinned npm 11; shows what the tarball holds
+   `main`; runs the lint, TypeScript, JUnit and XCTest suites and the iOS build with Xcode 26 (the
+   Capacitor matrix and the server tests ran on the pull request and on the merge to `main`); installs a pinned npm 11; shows what the tarball holds
    (`npm pack --dry-run`, the `files` list in `package.json`); and runs
    `npm publish --provenance --access public`, so the npm page links the release back to this
    repository and the workflow run. The checks live in `.github/actions/release-checks`, which

@@ -5,7 +5,7 @@
 [![npm](https://img.shields.io/npm/v/capacitor-background-transfer.svg)](https://www.npmjs.com/package/capacitor-background-transfer)
 [![CI](https://github.com/Outface-World/capacitor-background-transfer/actions/workflows/ci.yml/badge.svg)](https://github.com/Outface-World/capacitor-background-transfer/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-![Capacitor 7](https://img.shields.io/badge/Capacitor-7-119eff.svg)
+![Capacitor 7 and 8](https://img.shields.io/badge/Capacitor-7%20%7C%208-119eff.svg)
 ![Android 6+](https://img.shields.io/badge/Android-6.0%2B-3ddc84.svg)
 ![iOS 15+](https://img.shields.io/badge/iOS-15%2B-lightgrey.svg)
 
@@ -43,9 +43,11 @@ starting again.
 ## Status
 
 Early but complete: version 0.x, so the API may still change before 1.0. The JVM and Swift tests
-run in CI, including against local MinIO (S3) and Azurite (Azure) servers. The upload protocols
-also run end to end on the Android emulator and the iOS simulator, with the app killed, the
-network cut and URLs left to expire. Real AWS and Azure accounts, a locked iPhone and makers' own
+run in CI, including against local MinIO (S3) and Azurite (Azure) servers. CI also builds the
+plugin into new Capacitor 7 and Capacitor 8 apps for Android and iOS on every pull request, with
+the first and the newest release of each. The upload protocols have also run end to end on the
+Android emulator and the iOS simulator, in a Capacitor 7 app, with the app killed, the network cut
+and URLs left to expire. Real AWS and Azure accounts, a locked iPhone and makers' own
 battery managers haven't been tested yet (see [what's checked](docs/upload-protocols.md#checked-here-and-not)).
 Reports from real apps are very welcome.
 
@@ -61,8 +63,8 @@ npx cap sync
 
 | Platform | Supported |
 |---|---|
-| Capacitor | 7 |
-| Android | 6.0 (API 23) and later |
+| Capacitor | 7 and 8 |
+| Android | Capacitor 7: 6.0 (API 23) and later. Capacitor 8: 7.0 (API 24) and later |
 | iOS | 15 and later, with Swift Package Manager or CocoaPods |
 | Web | No: `isAvailable()` returns `{ available: false }` |
 
@@ -90,6 +92,10 @@ progress notification shown; transfers run without it. The WorkManager version f
 `workManagerVersion` in your `variables.gradle` (default 2.10.0).
 
 ### iOS: one `AppDelegate` method
+
+A new Capacitor 7 app targets iOS 14: raise its deployment target to 15 (in the Xcode project, and
+in the `Podfile` with CocoaPods), then run `npx cap sync` again, which gives the app's Swift package
+the new target or runs `pod install` with it. A Capacitor 8 app already targets 15.
 
 Hand the system's background session events to the plugin in `AppDelegate`, so transfers that
 end while the app is closed are recorded straight away (otherwise on the next launch):
