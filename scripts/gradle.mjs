@@ -72,7 +72,7 @@ export async function gradlew(dir, args, options = {}) {
     stdout = process.stdout,
     stderr = process.stderr,
   } = options;
-  const run = () => once(dir, [...args, '--offline'], { env, onChild, stdout, stderr });
+  const run = () => once(dir, [...args, ...(env.CI ? ['--offline'] : [])], { env, onChild, stdout, stderr });
   let result = await run();
   const cause = result.status !== 0 && !result.signal && !result.error && downloadFailure(result.output);
   if (cause) {
