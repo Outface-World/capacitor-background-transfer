@@ -5,14 +5,14 @@ final class UploadOutcomeTests: XCTestCase {
     let total: Int64 = 1000
 
     func testACleanFinalizeOfTheWholeFileIsFinished() {
-        let body = #"{"name":"uploads/x","size":"1000"}"#.data(using: .utf8)
+        let body = Data(#"{"name":"uploads/x","size":"1000"}"#.utf8)
         XCTAssertEqual(UploadOutcome.afterResponse(status: 200, uploadStatus: "final", received: 1000, body: body, total: total), .finished)
         XCTAssertEqual(UploadOutcome.afterResponse(status: 200, uploadStatus: nil, received: nil, body: nil, total: total), .finished)
     }
 
     func testAFinalizedObjectOfTheWrongSizeIsNeverFinished() {
         // A stale resend accepted and appended leaves a bigger object.
-        let body = #"{"size":"1500"}"#.data(using: .utf8)
+        let body = Data(#"{"size":"1500"}"#.utf8)
         guard case .failed(let reason, _) = UploadOutcome.afterResponse(status: 200, uploadStatus: "final", received: nil, body: body, total: total) else {
             return XCTFail("expected failed")
         }
@@ -116,8 +116,8 @@ final class UploadOutcomeTests: XCTestCase {
     }
 
     func testObjectSize() {
-        XCTAssertEqual(UploadOutcome.objectSize(#"{"size":"42"}"#.data(using: .utf8)), 42)
-        XCTAssertEqual(UploadOutcome.objectSize(#"{"size":42}"#.data(using: .utf8)), 42)
+        XCTAssertEqual(UploadOutcome.objectSize(Data(#"{"size":"42"}"#.utf8)), 42)
+        XCTAssertEqual(UploadOutcome.objectSize(Data(#"{"size":42}"#.utf8)), 42)
         XCTAssertNil(UploadOutcome.objectSize(Data("not json".utf8)))
         XCTAssertNil(UploadOutcome.objectSize(nil))
     }

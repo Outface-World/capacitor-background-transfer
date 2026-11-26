@@ -30,7 +30,8 @@ public enum PartsUpload {
 
     public static func partSize(_ r: TransferRecord) -> Int64 {
         let size = r.protocol == UploadProtocol.azureBlocks.rawValue ? r.blockSize : r.partSize
-        return (size ?? 0) > 0 ? size! : UploadOptionsCheck.defaultPartSize
+        if let size, size > 0 { return size }
+        return UploadOptionsCheck.defaultPartSize
     }
 
     public static func count(_ r: TransferRecord, size: Int64) -> Int {
@@ -186,7 +187,7 @@ public enum PartsUpload {
             let id = PartsXML.blockId(transferId: r.id, size: size, blockSize: partSize(r), n: n)
             target = withQuery(r.url, "comp=block&blockid=" + (id.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? id))
         } else {
-            target = (r.partUrls ?? []).indices.contains(n - 1) ? r.partUrls![n - 1] : nil
+            target = r.partUrls.flatMap { $0.indices.contains(n - 1) ? $0[n - 1] : nil }
         }
         guard let t = target, let url = URL(string: t) else { return nil }
         var request = URLRequest(url: url)

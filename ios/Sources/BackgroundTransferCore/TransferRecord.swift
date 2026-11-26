@@ -69,7 +69,7 @@ public struct TransferRecord: Codable, Equatable {
     public var js: [String: Any] {
         var o: [String: Any] = [
             "id": id, "direction": direction.rawValue, "state": state.rawValue, "url": url, "path": path,
-            "bytes": bytes, "total": total, "updatedAt": updatedAt,
+            "bytes": bytes, "total": total, "updatedAt": updatedAt
         ]
         if let p = `protocol` { o["protocol"] = p }
         if let reason = reason { o["reason"] = reason }

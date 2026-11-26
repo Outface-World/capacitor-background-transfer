@@ -68,7 +68,6 @@
     "@capacitor/ios": "^8.0.0",
     "@ionic/eslint-config": "^0.4.0",
     "@ionic/prettier-config": "^4.0.0",
-    "@ionic/swiftlint-config": "^2.0.0",
     "@types/node": "^22.20.5",
     "eslint": "^8.57.0",
     "prettier": "^3.4.2",
@@ -83,7 +82,6 @@
     "@capacitor/core": ">=7.0.0 <9.0.0"
   },
   "prettier": "@ionic/prettier-config",
-  "swiftlint": "@ionic/swiftlint-config",
   "eslintConfig": {
     "extends": "@ionic/eslint-config/recommended"
   },
