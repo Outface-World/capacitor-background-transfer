@@ -53,7 +53,7 @@ final class TransferManager: NSObject {
     /// Uploads whose part copies are being made, so a second hand-over doesn't copy them again.
     private var preparing = Set<String>()
 
-    private override init() {
+    override private init() {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         directory = support.appendingPathComponent("BackgroundTransfer", isDirectory: true)
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)

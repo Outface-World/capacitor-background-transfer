@@ -18,13 +18,15 @@ Run these before opening a pull request:
 
 ```bash
 npm run verify   # typecheck, Vitest, build, JUnit, XCTest
-npm run lint     # ESLint and Prettier (and SwiftLint where installed)
+npm run lint     # ESLint, Prettier and SwiftLint (SwiftLint on macOS, where installed)
 npm run test:servers   # with Docker: the JUnit and XCTest suites against MinIO and Azurite
 npm run test:matrix -- 7   # the plugin in new Capacitor 7 apps; the same with 8
 ```
 
-CI runs all of these but SwiftLint on every pull request and every push to `main`, forks' pull
-requests included. Its **Verify** job passes only when the checks, every Capacitor cell, the server
+SwiftLint's rules are in `.swiftlint.yml`, relaxed for the tests by `ios/Tests/.swiftlint.yml`.
+
+CI runs all of these on every pull request and every push to `main`, forks' pull requests
+included. Its **Verify** job passes only when the checks, every Capacitor cell, the server
 tests and the workflow checks have.
 
 A change to an upload protocol should also pass the end-to-end runs on an emulator or simulator
