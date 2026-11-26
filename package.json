@@ -53,7 +53,7 @@
     "prepublishOnly": "npm run build",
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json",
-    "test:android": "cd android && ./gradlew test && cd ..",
+    "test:android": "node scripts/gradle.mjs android test",
     "test:ios": "swift test --disable-keychain --package-path ios/CoreTests",
     "servers:up": "docker compose -f test-servers/compose.yaml up -d --wait",
     "servers:down": "docker compose -f test-servers/compose.yaml down",

@@ -6,6 +6,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { gradlew } from '../scripts/gradle.mjs';
+
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const compose = ['compose', '-f', path.join(root, 'test-servers/compose.yaml')];
 const env = { ...process.env, BT_HARNESS: 'http://localhost:8790' };
@@ -51,7 +53,11 @@ let ok = false;
 try {
   ok = run('docker', [...compose, 'up', '-d', '--wait']);
   // Always rerun: the servers are outside Gradle's view, so its earlier results prove nothing here.
-  if (ok) ok = run('./gradlew', ['testDebugUnitTest', '--rerun'], path.join(root, 'android'));
+  if (ok) {
+    const args = ['testDebugUnitTest', '--rerun'];
+    console.log(`$ ./gradlew ${args.join(' ')}`);
+    ok = (await gradlew(path.join(root, 'android'), args, { env })).status === 0;
+  }
   console.log(`JUnit: ${serversTestCount()}`);
   if (ok && process.platform === 'darwin')
     ok = run('swift', ['test', '--disable-keychain', '--package-path', 'ios/CoreTests']);
