@@ -263,9 +263,9 @@ public class ServersTest {
         );
         Thread.sleep(2100);
         TransferRecord done = run(r);
-        assertEquals(TransferRecord.FAILED, done.state);
-        assertEquals(TransferException.Reason.SESSION_REFUSED, done.reason);
-        assertEquals(403, done.httpStatus);
+        assertEquals(done.message, TransferRecord.FAILED, done.state);
+        assertEquals(done.message, TransferException.Reason.SESSION_REFUSED, done.reason);
+        assertEquals(done.message, 403, done.httpStatus);
         String which = switch (protocol) {
             case UploadAdapters.S3_MULTIPART -> "part 1 of 3";
             case UploadAdapters.AZURE_BLOCKS -> "block 1 of 3";
