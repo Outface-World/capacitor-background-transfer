@@ -10,6 +10,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { gradlew } from '../scripts/gradle.mjs';
 import {
   USAGE,
   XCODE_FOR,
@@ -74,12 +75,16 @@ for (const signal of ['SIGINT', 'SIGTERM'])
     else stop();
   });
 
+function announce(cmd, args, cwd) {
+  console.log(`$ ${cmd} ${args.join(' ')}   (${path.relative(work, cwd) || '.'})`);
+}
+
 /**
  * Runs one child to its end, and resolves with its stdout where that is piped. Not spawnSync: no
  * signal handler runs during it.
  */
 function run(cmd, args, cwd, stdout = 'inherit') {
-  console.log(`$ ${cmd} ${args.join(' ')}   (${path.relative(work, cwd) || '.'})`);
+  announce(cmd, args, cwd);
   return new Promise((resolve, reject) => {
     let printed = '';
     const started = spawn(cmd, args, { cwd, stdio: ['ignore', stdout, 'inherit'], env });
@@ -228,8 +233,14 @@ const androidApp = once(async () => {
   return dir;
 });
 
+/** Gradle in an app, run once more when it fails on a download (scripts/gradle.mjs). */
 async function gradle(app, ...tasks) {
-  await run('./gradlew', [...tasks, '--no-daemon'], path.join(app, 'android'));
+  const args = [...tasks, '--no-daemon'];
+  const cwd = path.join(app, 'android');
+  announce('./gradlew', args, cwd);
+  const { status, signal, error } = await gradlew(cwd, args, { env, onChild: (started) => (child = started) });
+  if (stopping) stop();
+  if (status !== 0) throw new Error(`${stepName('./gradlew', args)}: ${error?.message ?? signal ?? `exit ${status}`}`);
 }
 
 async function iosApp(name, packageManager) {
