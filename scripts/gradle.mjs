@@ -2,8 +2,8 @@
 // arguments, its output passed through, and exits with its status. A run that fails because a
 // dependency or the Gradle distribution could not be downloaded (a 429 or other error status, a
 // timeout, a refused or lost connection) is run once more after a pause; any other failure, and a
-// second failure, ends it. `npm run test:android`, the Capacitor matrix and `npm run test:servers`
-// start Gradle through it. See CONTRIBUTING.md.
+// second failure, ends it. `npm run test:android`, `npm run verify:android`, the Capacitor matrix
+// and `npm run test:servers` start Gradle through it. See CONTRIBUTING.md.
 import { spawn } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
@@ -16,9 +16,9 @@ export const PAUSE_MS = 60_000;
 // `Could not find`, which no retry fixes.
 const REQUEST = /^[ \t]*> (Could not (?:GET|HEAD) '[^']+'.*)$/m;
 const DOWNLOAD = /^[ \t]*> (Could not download .*)$/m;
-// The wrapper fetching the distribution throws from `main`: a java.net exception, or an IOException
-// for an error status or a timeout. A failed checksum is a RuntimeException.
-const WRAPPER = /^(Exception in thread "main" java\.(?:net\.\w+|io\.IOException)\b.*)$/m;
+// The wrapper fetching the distribution throws from `main`: a java.net or javax.net.ssl exception, or
+// an IOException for an error status or a timeout. A failed checksum is a RuntimeException.
+const WRAPPER = /^(Exception in thread "main" (?:java\.net\.\w+|javax\.net\.ssl\.\w+|java\.io\.IOException)\b.*)$/m;
 
 /** The line of Gradle's output that reports a failed download, or undefined if none does. */
 export function downloadFailure(output) {
@@ -27,6 +27,11 @@ export function downloadFailure(output) {
   const wrapper = WRAPPER.exec(output);
   if (wrapper && /^\tat org\.gradle\.wrapper\./m.test(output)) return wrapper[1].trim();
   return undefined;
+}
+
+/** Resolves once everything written to `stream` so far has been handed on. */
+function flushed(stream) {
+  return new Promise((resolve) => stream.write('', resolve));
 }
 
 /** A GitHub Actions workflow command's message, escaped. */
@@ -49,10 +54,13 @@ function once(dir, args, { env, onChild, stdout, stderr }) {
       });
     // `error` (it could not start) and `close` can both come.
     let ended = false;
-    const end = (result) => {
+    // A write to a pipe is asynchronous on macOS: a caller that exits once this resolves would drop
+    // the end of the output, where Gradle says what went wrong.
+    const end = async (result) => {
       if (ended) return;
       ended = true;
       onChild(undefined);
+      await Promise.all([flushed(stdout), flushed(stderr)]);
       resolve({ output, ...result });
     };
     child.on('error', (error) => end({ status: null, signal: null, error }));
@@ -72,7 +80,9 @@ export async function gradlew(dir, args, options = {}) {
     stdout = process.stdout,
     stderr = process.stderr,
   } = options;
-  const run = () => once(dir, args, { env, onChild, stdout, stderr });
+  // Gradle's stdout is a pipe here, so it picks its plain console unless told otherwise.
+  const rich = stdout.isTTY && !args.some((arg) => arg.startsWith('--console')) ? ['--console=rich'] : [];
+  const run = () => once(dir, [...args, ...rich], { env, onChild, stdout, stderr });
   let result = await run();
   const cause = result.status !== 0 && !result.signal && !result.error && downloadFailure(result.output);
   if (cause) {
@@ -93,5 +103,5 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   }
   const { status, signal, error } = await gradlew(path.resolve(dir), args);
   if (error) console.error(`./gradlew in ${dir}: ${error.message}`);
-  process.exit(signal ? 128 + os.constants.signals[signal] : (status ?? 1));
+  process.exitCode = signal ? 128 + os.constants.signals[signal] : (status ?? 1);
 }

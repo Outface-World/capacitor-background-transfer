@@ -40,6 +40,15 @@ describe('downloadFailure', () => {
     );
   });
 
+  it('finds a TLS connection the wrapper lost', () => {
+    const reset = [
+      'Downloading https://services.gradle.org/distributions/gradle-8.14.3-all.zip',
+      'Exception in thread "main" javax.net.ssl.SSLException: Connection reset',
+      '\tat org.gradle.wrapper.Install.forceFetch(SourceFile:2)',
+    ].join('\n');
+    expect(downloadFailure(reset)).toBe('Exception in thread "main" javax.net.ssl.SSLException: Connection reset');
+  });
+
   it.each(['junit-failure', 'compile-error', 'no-sdk'])('finds nothing in %s', (name) => {
     expect(downloadFailure(output(name))).toBeUndefined();
   });
@@ -94,8 +103,9 @@ describe('gradlew', () => {
     return { stream, text: () => text };
   }
 
-  async function run(env: NodeJS.ProcessEnv = { PATH: process.env.PATH }) {
+  async function run(env: NodeJS.ProcessEnv = { PATH: process.env.PATH }, tty = false) {
     const out = sink();
+    Object.assign(out.stream, { isTTY: tty });
     const err = sink();
     const result = await gradlew(dir, ['test', '--no-daemon'], {
       env,
@@ -141,6 +151,12 @@ describe('gradlew', () => {
     expect(runs()).toHaveLength(1);
   });
 
+  it("asks for Gradle's rich console when its output goes to a terminal", async () => {
+    standIn({ status: 0 });
+    await run({ PATH: process.env.PATH }, true);
+    expect(runs()).toEqual(['test --no-daemon --console=rich']);
+  });
+
   it('says why it retries as a GitHub Actions warning in a workflow', async () => {
     standIn({ print: 'download-429', status: 1 }, { status: 0 });
     const { stderr } = await run({ PATH: process.env.PATH, GITHUB_ACTIONS: 'true' });
@@ -151,6 +167,18 @@ describe('gradlew', () => {
     const { status, error } = await run();
     expect(status).toBeNull();
     expect(error?.message).toMatch(/ENOENT/);
+  });
+
+  it('hands on all of the output before it exits, however slowly it is read', { timeout: 30_000 }, () => {
+    const gradle = 'head -c 2000000 /dev/zero | tr "\\000" x\necho "BUILD FAILED END-MARKER"\nexit 1';
+    fs.writeFileSync(path.join(dir, 'gradlew'), `#!/bin/sh\n${gradle}\n`, { mode: 0o755 });
+    const read = path.join(dir, 'read.txt');
+    spawnSync('sh', ['-c', '"$0" "$1" "$2" test | (sleep 1; cat > "$3")', process.execPath, script, dir, read], {
+      env: { PATH: process.env.PATH },
+    });
+    const text = fs.readFileSync(read, 'utf8');
+    expect(text).toHaveLength(2_000_024);
+    expect(text.endsWith('BUILD FAILED END-MARKER\n')).toBe(true);
   });
 
   it('passes the arguments and the exit status through on the command line', { timeout: 30_000 }, () => {

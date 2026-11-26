@@ -64,4 +64,4 @@ try {
 } finally {
   execFileSync('docker', [...compose, 'down'], { stdio: 'inherit' });
 }
-process.exit(ok ? 0 : 1);
+process.exitCode = ok ? 0 : 1;
