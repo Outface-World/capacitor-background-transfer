@@ -61,9 +61,30 @@ Verify, the server tests and the workflow checks pass; majors wait for review. I
 pull request Dependabot opened from a branch in this repository whose every commit Dependabot
 authored and GitHub signed, so one somebody else has pushed to stays open.
 
+CI caches what Gradle downloads in the six jobs that run it (**Checks**, **Android tests against
+MinIO and Azurite** and the four **JavaScript and Android** cells), so a run whose dependency set is
+unchanged asks Maven Central for nothing. The cache holds the dependencies and the wrapper's
+unpacked Gradle distributions (`~/.gradle/caches/modules-2` and `~/.gradle/wrapper/dists`), not
+build outputs. Its key is the runner's OS, the job, the Gradle files under `android/`
+(`build.gradle`, `settings.gradle`, `gradle.properties` and the wrapper's properties) and the
+Capacitor in use: the installed `@capacitor/android` for the first two jobs, and for a matrix cell
+the Capacitor release it runs, which the job looks up before restoring and then hands to the
+matrix. A run with no exact match restores the newest cache of the same job and OS and downloads
+only the difference. Any run saves when no cache matched its key exactly and the job passed, pull
+requests from forks included: GitHub confines a pull request's cache to that pull request, so
+`main` and other pull requests never restore it. A cache that can't be restored or saved doesn't
+fail the job.
+
+Wherever Gradle is started (`npm run test:android`, `npm run test:matrix` and `npm run
+test:servers`, through `scripts/gradle.mjs`), a run whose output reports a failed download (an
+error status such as 429, a timeout, a refused or lost connection, from Gradle or its wrapper) is
+run once more after a minute, and the log says so and names the failure. Any other failure, and a
+second one, fails at once with Gradle's own output. This covers a run with no cache, and the
+release checks.
+
 The publish path restores no caches and runs no install scripts: caching is off explicitly on
-every setup action in `release.yml` and `.github/actions/release-checks`, and dependencies are
-installed with `npm ci --ignore-scripts`.
+every setup action in `release.yml` and `.github/actions/release-checks`, neither has a cache step,
+and dependencies are installed with `npm ci --ignore-scripts`.
 
 ## The tests
 
