@@ -76,11 +76,11 @@ requests from forks included: GitHub confines a pull request's cache to that pul
 fail the job.
 
 Wherever Gradle is started (`npm run test:android`, `npm run verify:android`, `npm run
-test:matrix` and `npm run test:servers`, through `scripts/gradle.mjs`), a run whose output reports a failed download (an
-error status such as 429, a timeout, a refused or lost connection, from Gradle or its wrapper) is
-run once more after a minute, and the log says so and names the failure. Any other failure, and a
-second one, fails at once with Gradle's own output. This covers a run with no cache, and the
-release checks.
+test:matrix` and `npm run test:servers`, through `scripts/gradle.mjs`), a run whose error output
+reports a failed download (an error status such as 429, a timeout, a refused or lost connection,
+from Gradle or its wrapper, in its plain or its rich console) is run once more after a minute, and
+the log says so and names the failure. Any other failure, and a second one, fails at once with
+Gradle's own output. This covers a run with no cache, and the release checks.
 
 The publish path restores no caches and runs no install scripts: caching is off explicitly on
 every setup action in `release.yml` and `.github/actions/release-checks`, neither has a cache step,

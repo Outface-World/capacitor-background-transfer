@@ -20,12 +20,16 @@ const DOWNLOAD = /^[ \t]*> (Could not download .*)$/m;
 // an IOException for an error status or a timeout. A failed checksum is a RuntimeException.
 const WRAPPER = /^(Exception in thread "main" (?:java\.net\.\w+|javax\.net\.ssl\.\w+|java\.io\.IOException)\b.*)$/m;
 
-/** The line of Gradle's output that reports a failed download, or undefined if none does. */
-export function downloadFailure(output) {
-  const request = REQUEST.exec(output) ?? DOWNLOAD.exec(output);
+// Gradle's rich console colours the failure tree (`\x1b[33m> \x1b[39mCould not GET …`).
+const ESCAPE = /\x1b\[[0-9;?]*[ -/]*[@-~]/g;
+
+/** The line of Gradle's error output that reports a failed download, or undefined if none does. */
+export function downloadFailure(errors) {
+  const text = errors.replace(ESCAPE, '');
+  const request = REQUEST.exec(text) ?? DOWNLOAD.exec(text);
   if (request) return request[1].trim();
-  const wrapper = WRAPPER.exec(output);
-  if (wrapper && /^\tat org\.gradle\.wrapper\./m.test(output)) return wrapper[1].trim();
+  const wrapper = WRAPPER.exec(text);
+  if (wrapper && /^\tat org\.gradle\.wrapper\./m.test(text)) return wrapper[1].trim();
   return undefined;
 }
 
@@ -41,17 +45,16 @@ function escaped(message) {
 
 function once(dir, args, { env, onChild, stdout, stderr }) {
   return new Promise((resolve) => {
-    let output = '';
+    // Gradle's failure tree and the wrapper's exception go to stderr. Stdout is kept out: its progress
+    // has no closing newline, so a line of stderr appended to it would not start a line.
+    let errors = '';
     const child = spawn('./gradlew', args, { cwd: dir, env, stdio: ['ignore', 'pipe', 'pipe'] });
     onChild(child);
-    for (const [from, to] of [
-      [child.stdout, stdout],
-      [child.stderr, stderr],
-    ])
-      from.setEncoding('utf8').on('data', (text) => {
-        output += text;
-        to.write(text);
-      });
+    child.stdout.setEncoding('utf8').on('data', (text) => stdout.write(text));
+    child.stderr.setEncoding('utf8').on('data', (text) => {
+      errors += text;
+      stderr.write(text);
+    });
     // `error` (it could not start) and `close` can both come.
     let ended = false;
     // A write to a pipe is asynchronous on macOS: a caller that exits once this resolves would drop
@@ -61,7 +64,7 @@ function once(dir, args, { env, onChild, stdout, stderr }) {
       ended = true;
       onChild(undefined);
       await Promise.all([flushed(stdout), flushed(stderr)]);
-      resolve({ output, ...result });
+      resolve({ errors, ...result });
     };
     child.on('error', (error) => end({ status: null, signal: null, error }));
     child.on('close', (status, signal) => end({ status, signal }));
@@ -84,7 +87,7 @@ export async function gradlew(dir, args, options = {}) {
   const rich = stdout.isTTY && !args.some((arg) => arg.startsWith('--console')) ? ['--console=rich'] : [];
   const run = () => once(dir, [...args, ...rich], { env, onChild, stdout, stderr });
   let result = await run();
-  const cause = result.status !== 0 && !result.signal && !result.error && downloadFailure(result.output);
+  const cause = result.status !== 0 && !result.signal && !result.error && downloadFailure(result.errors);
   if (cause) {
     const message = `Gradle could not download a dependency, so ./gradlew ${args.join(' ')} runs once more in ${pauseMs / 1000} s: ${cause}`;
     stderr.write(`\n${env.GITHUB_ACTIONS === 'true' ? `::warning::${escaped(message)}` : message}\n`);

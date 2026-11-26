@@ -1,0 +1,27 @@
+
+[31mFAILURE: [39m[31mBuild failed with an exception.[39m
+
+* What went wrong:
+A problem occurred configuring root project 'android'.
+[33m> [39mCould not resolve all artifacts for configuration 'classpath'.
+   [33m> [39mCould not resolve com.android.tools.build:gradle:8.13.0.
+     Required by:
+         root project :
+      [33m> [39mCould not resolve com.android.tools.build:gradle:8.13.0.
+         [33m> [39mCould not get resource 'https://dl.google.com/dl/android/maven2/com/android/tools/build/gradle/8.13.0/gradle-8.13.0.pom'.
+            [33m> [39mCould not GET 'https://dl.google.com/dl/android/maven2/com/android/tools/build/gradle/8.13.0/gradle-8.13.0.pom'.
+               [33m> [39mGot socket exception during request. It might be caused by SSL misconfiguration
+                  [33m> [39mConnect to 127.0.0.1:9 [/127.0.0.1] failed: Connection refused (connect failed)
+      [33m> [39mCould not resolve com.android.tools.build:gradle:8.13.0.
+         [33m> [39mCould not get resource 'https://repo.maven.apache.org/maven2/com/android/tools/build/gradle/8.13.0/gradle-8.13.0.pom'.
+            [33m> [39mCould not GET 'https://repo.maven.apache.org/maven2/com/android/tools/build/gradle/8.13.0/gradle-8.13.0.pom'.
+               [33m> [39mGot socket exception during request. It might be caused by SSL misconfiguration
+                  [33m> [39mConnect to 127.0.0.1:9 [/127.0.0.1] failed: Connection refused (connect failed)
+
+* Try:
+[33m> [39mRun with [1m--stacktrace[m option to get the stack trace.
+[33m> [39mRun with [1m--info[m or [1m--debug[m option to get more log output.
+[33m> [39mRun with [1m--scan[m to get full insights.
+[33m> [39mGet more help at [1mhttps://help.gradle.org[m.
+
+[31;1mBUILD FAILED[0;39m in 7s

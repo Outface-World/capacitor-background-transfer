@@ -34,6 +34,12 @@ describe('downloadFailure', () => {
     );
   });
 
+  it("finds a failed request in the failure tree Gradle's rich console colours", () => {
+    expect(downloadFailure(output('download-rich-console'))).toBe(
+      "Could not GET 'https://dl.google.com/dl/android/maven2/com/android/tools/build/gradle/8.13.0/gradle-8.13.0.pom'.",
+    );
+  });
+
   it("finds the wrapper's failed download of the distribution", () => {
     expect(downloadFailure(output('wrapper-download'))).toBe(
       'Exception in thread "main" java.net.ConnectException: Connection refused',
@@ -149,6 +155,34 @@ describe('gradlew', () => {
     standIn({ status: 0 });
     expect((await run()).status).toBe(0);
     expect(runs()).toHaveLength(1);
+  });
+
+  it("runs once more after a failed download in Gradle's rich console", async () => {
+    standIn({ print: 'download-rich-console', status: 1 }, { status: 0 });
+    const { status, stderr } = await run({ PATH: process.env.PATH }, true);
+    expect(status).toBe(0);
+    expect(runs()).toEqual(['test --no-daemon --console=rich', 'test --no-daemon --console=rich']);
+    expect(stderr).toMatch(/^Gradle could not download a dependency, .*: Could not GET 'https:\/\/dl\.google\.com\//m);
+  });
+
+  it("runs once more when the wrapper loses its connection part way through the wrapper's progress", async () => {
+    const gradle = [
+      'echo "$*" >> runs.log',
+      '[ "$(wc -l < runs.log | tr -d " ")" = 2 ] && exit 0',
+      'echo "Downloading https://services.gradle.org/distributions/gradle-8.14.3-all.zip"',
+      'printf ".....10%%.....20%%"',
+      'printf \'Exception in thread "main" java.net.SocketException: Connection reset\\n\' >&2',
+      'printf "\\tat org.gradle.wrapper.Install.forceFetch(SourceFile:2)\\n" >&2',
+      'exit 1',
+    ].join('\n');
+    fs.writeFileSync(path.join(dir, 'gradlew'), `#!/bin/sh\n${gradle}\n`, { mode: 0o755 });
+    const { status, stdout, stderr } = await run();
+    expect(status).toBe(0);
+    expect(runs()).toHaveLength(2);
+    expect(stdout).toMatch(/20%$/);
+    expect(stderr).toMatch(
+      /runs once more in 0\.01 s: Exception in thread "main" java\.net\.SocketException: Connection reset$/m,
+    );
   });
 
   it("asks for Gradle's rich console when its output goes to a terminal", async () => {
