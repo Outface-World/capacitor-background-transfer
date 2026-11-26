@@ -61,10 +61,8 @@ function once(dir, args, { env, onChild, stdout, stderr }) {
 }
 
 /**
- * Runs `./gradlew` in `dir`, and once more after `pauseMs` when the first run failed on a download.
- * Resolves with the last run's `{ status, signal, error }`: `error` when `./gradlew` could not start.
- * `onChild` is given each run's process as it starts and undefined as it ends, so a caller can pass a
- * signal on; a run ended by a signal is not retried.
+ * `./gradlew` in `dir`, run again after `pauseMs` if it failed on a download; resolves `{ status, signal, error }`.
+ * `onChild` gets each run's process, then undefined once it ends; a run a signal ended is not retried.
  */
 export async function gradlew(dir, args, options = {}) {
   const {

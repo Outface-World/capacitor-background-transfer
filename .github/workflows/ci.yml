@@ -18,17 +18,9 @@ permissions:
 env:
   NODE_VERSION: 22
   JAVA_VERSION: 21
-  # What the six jobs that run Gradle cache: what Gradle downloads, so that a run whose dependency
-  # set is unchanged asks Maven Central for nothing. The dependencies and the wrapper's unpacked
-  # distributions; no lock files, no distribution zips (the `.ok` marker beside one is what the
-  # wrapper checks) and no build outputs. Each job keys its cache on the runner's OS, the job and
-  # everything that fixes its dependency set, and restores the newest cache of the same job and OS
-  # when no key matches, so it downloads only the difference. actions/cache saves at the end of a
-  # job that passed and found no exact match. Any run saves: GitHub confines a pull request's cache
-  # to that pull request, a fork's included, so main and other pull requests never restore it. A
-  # cache that can't be restored or saved is a warning, and the job downloads as it would without
-  # one. Gradle's failed downloads are retried once (scripts/gradle.mjs). The publish path restores
-  # no cache (release.yml).
+  # What the six Gradle jobs cache: Gradle's dependencies and the wrapper's unpacked distributions
+  # (the wrapper runs one on its `.ok` marker, so the zip is left out); no locks, no build outputs.
+  # The keys, and which runs save: CONTRIBUTING.md, "The workflows".
   GRADLE_CACHE: |
     ~/.gradle/caches/modules-2
     !~/.gradle/caches/modules-2/*.lock
@@ -76,7 +68,9 @@ jobs:
       - name: The installed @capacitor/android
         id: capacitor-android
         run: echo "version=$(node -p "require('./node_modules/@capacitor/android/package.json').version")" >> "$GITHUB_OUTPUT"
-      # Keyed on the Gradle files and the @capacitor/android that android/settings.gradle includes.
+      # The key names all that fixes the job's dependency set: the Gradle files and the
+      # @capacitor/android that settings.gradle includes. A miss restores the job's newest cache; a job
+      # that passes with no exact hit saves (a pull request's cache stays with that pull request).
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.GRADLE_CACHE }}
@@ -221,6 +215,7 @@ jobs:
       - name: The installed @capacitor/android
         id: capacitor-android
         run: echo "version=$(node -p "require('./node_modules/@capacitor/android/package.json').version")" >> "$GITHUB_OUTPUT"
+      # Keyed as in Checks.
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.GRADLE_CACHE }}
