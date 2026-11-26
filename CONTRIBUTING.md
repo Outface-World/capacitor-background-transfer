@@ -75,8 +75,8 @@ requests from forks included: GitHub confines a pull request's cache to that pul
 `main` and other pull requests never restore it. A cache that can't be restored or saved doesn't
 fail the job.
 
-Wherever Gradle is started (`npm run test:android`, `npm run test:matrix` and `npm run
-test:servers`, through `scripts/gradle.mjs`), a run whose output reports a failed download (an
+Wherever Gradle is started (`npm run test:android`, `npm run verify:android`, `npm run
+test:matrix` and `npm run test:servers`, through `scripts/gradle.mjs`), a run whose output reports a failed download (an
 error status such as 429, a timeout, a refused or lost connection, from Gradle or its wrapper) is
 run once more after a minute, and the log says so and names the failure. Any other failure, and a
 second one, fails at once with Gradle's own output. This covers a run with no cache, and the
