@@ -222,8 +222,10 @@ published by a merge to `main`.
    moved). Or publish the next version as a full release.
 3. Publishing the release runs the workflow: it checks that the tag names the version in
    `package.json`, that `CHANGELOG.md` has a dated entry for it and that the tagged commit is on
-   `main`; runs the lint, TypeScript, JUnit and XCTest suites and the iOS build with Xcode 26 (the
-   Capacitor matrix and the server tests ran on the pull request and on the merge to `main`); installs a pinned npm 11; shows what the tarball holds
+   `main`; runs ESLint and Prettier (not SwiftLint, whose binary the release path doesn't
+   install), the TypeScript, Vitest, JUnit and XCTest suites, the build and the iOS build with
+   Xcode 26 (SwiftLint, the Capacitor matrix and the server tests ran on the pull request and on
+   the merge to `main`); installs a pinned npm 11; shows what the tarball holds
    (`npm pack --dry-run`, the `files` list in `package.json`); and runs
    `npm publish --provenance --access public`, so the npm page links the release back to this
    repository and the workflow run. The checks live in `.github/actions/release-checks`, which
